@@ -1454,6 +1454,83 @@
 
 
   <!-- ================================
+       DEMO INTERATIVA
+  ================================ -->
+  <section id="demo" class="section">
+    <div class="container">
+      <div class="demo-inner fade-in">
+        <div class="tag" style="margin-bottom:20px;">Demo ao vivo</div>
+        <h2 class="section-title">
+          Veja o <span class="highlight">AI Staff</span><br/>em ação agora.
+        </h2>
+        <p class="section-sub" style="margin: 0 auto;">
+          Descreva um desafio de decisão real da sua empresa e receba um briefing executivo em segundos — do mesmo jeito que seu time receberia toda semana.
+        </p>
+
+        <div class="demo-form">
+          <textarea
+            id="demoInput"
+            class="demo-textarea"
+            placeholder="Descreva um desafio de decisão — ex: Devo expandir para SP agora ou aguardar Q3?"
+            maxlength="500"
+            oninput="demoHandleInput()"
+          ></textarea>
+          <div class="demo-char-count" id="demoCharCount">0 / 500</div>
+
+          <button class="demo-submit" id="demoSubmit" onclick="demoGenerate()" disabled>
+            <span id="demoSubmitText">Gerar Briefing</span>
+          </button>
+
+          <div class="demo-loading" id="demoLoading">
+            <div class="demo-spinner"></div>
+            <span>Analisando contexto...</span>
+          </div>
+
+          <div class="demo-error" id="demoError">
+            Algo deu errado. Tente novamente em instantes.
+          </div>
+        </div>
+
+        <div class="demo-output" id="demoOutput">
+          <div class="demo-output-title" id="demoTitulo"></div>
+
+          <div class="demo-section">
+            <div class="demo-section-label">Contexto</div>
+            <div class="demo-section-body" id="demoContexto"></div>
+          </div>
+
+          <div class="demo-section">
+            <div class="demo-section-label">Trade-offs</div>
+            <div class="demo-section-body">
+              <ul id="demoTradeoffs"></ul>
+            </div>
+          </div>
+
+          <div class="demo-section demo-recomendacao">
+            <div class="demo-section-label">Recomendação</div>
+            <div class="demo-section-body" id="demoRecomendacao"></div>
+          </div>
+
+          <div class="demo-section" style="margin-bottom:0;">
+            <div class="demo-section-label">Próximos Passos</div>
+            <div class="demo-section-body">
+              <ul id="demoProximos"></ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="demo-cta" id="demoCta">
+          <p>Quer isso todo dia para as <strong>decisões reais da sua empresa</strong>? Seu time já poderia estar recebendo briefings assim toda segunda-feira.</p>
+          <a href="#piloto" class="demo-cta-btn">Falar sobre o piloto →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+
+  <!-- ================================
        MOMENTO MÁGICO
   ================================ -->
   <section id="momento" class="section">
@@ -1842,6 +1919,118 @@
     );
 
     document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+    // ---- Demo Interativa ----
+    function demoHandleInput() {
+      const input = document.getElementById('demoInput');
+      const count = document.getElementById('demoCharCount');
+      const btn   = document.getElementById('demoSubmit');
+      const len   = input.value.trim().length;
+
+      count.textContent = input.value.length + ' / 500';
+      count.className   = 'demo-char-count' +
+        (input.value.length >= 500 ? ' at-limit' : input.value.length >= 430 ? ' near-limit' : '');
+
+      btn.disabled = len < 10;
+    }
+
+    async function demoGenerate() {
+      const input  = document.getElementById('demoInput');
+      const topic  = input.value.trim();
+      if (!topic || topic.length < 10) return;
+
+      const btn     = document.getElementById('demoSubmit');
+      const loading = document.getElementById('demoLoading');
+      const output  = document.getElementById('demoOutput');
+      const cta     = document.getElementById('demoCta');
+      const err     = document.getElementById('demoError');
+
+      // Reset
+      output.classList.remove('visible');
+      cta.classList.remove('visible');
+      err.classList.remove('visible');
+
+      // Loading state
+      btn.disabled = true;
+      document.getElementById('demoSubmitText').textContent = 'Gerando...';
+      loading.classList.add('visible');
+
+      try {
+        let briefing;
+
+        try {
+          const res = await fetch('/api/demo/briefing', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topic }),
+            signal: AbortSignal.timeout(30000)
+          });
+
+          if (!res.ok) throw new Error('API error ' + res.status);
+          const data = await res.json();
+          briefing = data.briefing;
+        } catch (_apiErr) {
+          // Mock fallback while backend is pending
+          await new Promise(r => setTimeout(r, 2000));
+          briefing = demoMockBriefing(topic);
+        }
+
+        demoRender(briefing);
+
+      } catch (e) {
+        err.classList.add('visible');
+      } finally {
+        loading.classList.remove('visible');
+        btn.disabled = false;
+        document.getElementById('demoSubmitText').textContent = 'Gerar Briefing';
+        demoHandleInput();
+      }
+    }
+
+    function demoMockBriefing(topic) {
+      return {
+        titulo: 'Briefing Executivo: ' + topic.substring(0, 60) + (topic.length > 60 ? '...' : ''),
+        contexto: 'Com base no contexto estratégico atual, essa decisão envolve variáveis de mercado, capacidade operacional e posicionamento competitivo. O momento pede clareza sobre prioridades e critérios de sucesso antes de comprometer recursos.',
+        trade_offs: [
+          'Agir agora captura oportunidade, mas eleva exposição a risco de execução',
+          'Aguardar reduz risco imediato, mas pode ceder vantagem competitiva',
+          'Decisão reversível em curto prazo vs. comprometimento de longo prazo',
+          'Custo de oportunidade do não-movimento vs. custo do movimento precipitado'
+        ],
+        recomendacao: 'Avançar com uma fase exploratória limitada — defina um critério de go/no-go claro em 30 dias. Isso reduz comprometimento prematuro enquanto mantém o movimento estratégico.',
+        proximos_passos: [
+          'Definir critério de go/no-go mensurável e prazo de revisão',
+          'Mapear os 2-3 riscos críticos e responsável por cada mitigação',
+          'Alinhar com o board sobre tolerância a risco nessa janela',
+          'Agendar checkpoint em 30 dias com dados de validação'
+        ]
+      };
+    }
+
+    function demoRender(b) {
+      document.getElementById('demoTitulo').textContent = b.titulo;
+      document.getElementById('demoContexto').textContent = b.contexto;
+      document.getElementById('demoRecomendacao').textContent = b.recomendacao;
+
+      const toList = (id, items) => {
+        const ul = document.getElementById(id);
+        ul.innerHTML = '';
+        (items || []).forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          ul.appendChild(li);
+        });
+      };
+
+      toList('demoTradeoffs', b.trade_offs);
+      toList('demoProximos', b.proximos_passos);
+
+      document.getElementById('demoOutput').classList.add('visible');
+      document.getElementById('demoCta').classList.add('visible');
+
+      // Smooth scroll to output
+      document.getElementById('demoOutput').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   </script>
 
 </body>
