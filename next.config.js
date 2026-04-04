@@ -6,6 +6,15 @@ const nextConfig = {
       bodySizeLimit: '1mb',
     },
   },
+  // Serve the static HTML landing page at the root
+  async rewrites() {
+    return [
+      {
+        source: '/',
+        destination: '/index.html',
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig
